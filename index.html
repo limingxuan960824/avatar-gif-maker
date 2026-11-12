@@ -56,7 +56,7 @@
     }
     input[type="text"]:focus, select:focus { outline: 2px solid rgba(213, 47, 62, .18); border-color: var(--accent); }
     input[type="range"] { width: 100%; accent-color: var(--accent); }
-    .motion-grid, .theme-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+    .motion-grid, .theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
     .motion-grid button, .theme-grid button {
       height: 36px; border: 1px solid #d1d3d7; border-radius: 6px; background: white; color: #5c6068; font-size: 12px;
     }
@@ -134,7 +134,7 @@
         <section class="section">
           <h2 class="section-title">3. 选择动作</h2>
           <div class="motion-grid" id="motionGrid">
-            <button class="active" data-value="slide">滑动</button><button data-value="bounce">弹跳</button><button data-value="shake">摇头</button><button data-value="pulse">呼吸</button><button data-value="float">漂浮</button>
+            <button class="active" data-value="slide">滑动</button><button data-value="bounce">弹跳</button><button data-value="shake">摇头</button><button data-value="pulse">呼吸</button><button data-value="float">漂浮</button><button data-value="textwave">文字跳</button>
           </div>
           <label class="field" style="margin-top:14px">
             <span class="label-row"><span>动作幅度</span><span class="value" id="strengthValue">100%</span></span>
@@ -183,6 +183,7 @@
     function motionAt(t) {
       const p = (t % 1) * Math.PI * 2;
       const s = Number($('strengthInput').value) / 100;
+      if (state.motion === 'textwave') return [0, 0, 0, 1];
       if (state.motion === 'bounce') return [0, -Math.abs(Math.sin(p)) * 26 * s, 0, 1 + Math.abs(Math.sin(p)) * .035];
       if (state.motion === 'shake') return [Math.sin(p * 3) * 18 * s, 0, Math.sin(p * 3) * .12 * s, 1];
       if (state.motion === 'pulse') return [0, 0, 0, 1 + Math.sin(p) * .09 * s];
@@ -225,7 +226,20 @@
       let display = raw;
       while (display.length > 1 && drawContext.measureText(display).width > 460) display = display.slice(0, -1);
       if (display !== raw) display = display.slice(0, -1) + '…';
-      drawContext.fillText(display, 278, 140);
+      if (state.motion === 'textwave') {
+        const characters = Array.from(display);
+        const active = (progress % 1) * characters.length;
+        const strength = Number($('strengthInput').value) / 100;
+        let textX = 278;
+        characters.forEach((character, index) => {
+          const distance = (active - index + characters.length) % characters.length;
+          const lift = distance < 1 ? Math.sin(distance * Math.PI) * 30 * strength : 0;
+          drawContext.fillText(character, textX, 140 - lift);
+          textX += drawContext.measureText(character).width;
+        });
+      } else {
+        drawContext.fillText(display, 278, 140);
+      }
     }
 
     function draw() {
