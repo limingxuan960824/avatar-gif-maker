@@ -63,6 +63,17 @@
     .motion-grid button.active, .theme-grid button.active { border-color: var(--accent); color: var(--accent); background: #fff5f6; font-weight: 700; }
     .theme-grid { grid-template-columns: repeat(4, 1fr); }
     .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; vertical-align: -2px; margin-right: 4px; }
+    .background-picker {
+      display: flex; align-items: center; gap: 10px; min-height: 58px; margin-top: 14px; padding: 8px;
+      border: 1px dashed #b9bdc4; border-radius: 6px; background: #fafafa;
+    }
+    .background-file { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 12px; color: #5d6169; }
+    .background-file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .background-preview { display: none; width: 78px; height: 40px; flex: 0 0 auto; object-fit: cover; border-radius: 4px; border: 1px solid #d1d3d7; }
+    .background-placeholder { width: 78px; height: 40px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 4px; background: #e7e9ec; color: #7e838c; font-weight: 700; }
+    .clear-background { display: none; width: 30px; height: 30px; flex: 0 0 auto; padding: 0; border: 1px solid #d1d3d7; border-radius: 6px; background: white; color: #6b7078; font-size: 18px; line-height: 1; }
+    .background-controls { margin-top: 14px; }
+    .background-controls[hidden] { display: none; }
     .toggle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #5e626a; }
     .toggle input { width: 36px; height: 20px; accent-color: var(--green); }
     .stage-wrap { min-width: 0; padding: 30px; display: grid; grid-template-rows: 1fr auto; gap: 22px; }
@@ -150,6 +161,33 @@
             <button data-value="cherry"><i class="swatch" style="background:#cb2630"></i>樱红</button>
             <button data-value="mint"><i class="swatch" style="background:#2b8766"></i>薄荷</button>
           </div>
+          <div class="background-picker">
+            <label class="background-file">
+              <input id="backgroundInput" type="file" accept="image/png,image/jpeg,image/webp">
+              <span class="background-placeholder" id="backgroundPlaceholder">图片</span>
+              <img class="background-preview" id="backgroundPreview" alt="背景图预览">
+              <span id="backgroundLabel">选择自定义背景图</span>
+            </label>
+            <button class="clear-background" id="clearBackground" type="button" title="移除背景图" aria-label="移除背景图">×</button>
+          </div>
+          <div class="background-controls" id="backgroundControls" hidden>
+            <label class="field">
+              <span class="label-row"><span>背景缩放</span><span class="value" id="backgroundZoomValue">100%</span></span>
+              <input id="backgroundZoomInput" type="range" min="100" max="240" value="100">
+            </label>
+            <label class="field">
+              <span class="label-row"><span>背景左右位置</span><span class="value" id="backgroundXValue">0</span></span>
+              <input id="backgroundXInput" type="range" min="-100" max="100" value="0">
+            </label>
+            <label class="field">
+              <span class="label-row"><span>背景上下位置</span><span class="value" id="backgroundYValue">0</span></span>
+              <input id="backgroundYInput" type="range" min="-100" max="100" value="0">
+            </label>
+            <label class="field" style="margin-bottom:0">
+              <span class="label-row"><span>文字遮罩</span><span class="value" id="backgroundShadeValue">24%</span></span>
+              <input id="backgroundShadeInput" type="range" min="0" max="70" value="24">
+            </label>
+          </div>
           <div class="toggle" style="margin-top:15px"><span>透明背景</span><input id="transparentInput" type="checkbox" checked></div>
         </section>
       </aside>
@@ -172,7 +210,7 @@
     const $ = (id) => document.getElementById(id);
     const canvas = $('canvas');
     const ctx = canvas.getContext('2d');
-    const state = { image: null, dataUrl: '', motion: 'slide', theme: 'graphite', start: performance.now() };
+    const state = { image: null, dataUrl: '', backgroundImage: null, motion: 'slide', theme: 'graphite', start: performance.now() };
     const themes = {
       graphite: { bubble: '#303236', text: '#fafafa', ring: '#70747c' },
       mist: { bubble: '#e2e4e8', text: '#24262a', ring: '#ffffff' },
@@ -207,6 +245,30 @@
       drawContext.fillStyle = c.bubble;
       drawContext.beginPath(); drawContext.roundRect(128, 54, 660, 172, 86); drawContext.closePath(); drawContext.fill();
       drawContext.restore();
+      if (state.backgroundImage) {
+        const bubbleX = 128, bubbleY = 54, bubbleWidth = 660, bubbleHeight = 172;
+        drawContext.save();
+        drawContext.beginPath(); drawContext.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 86); drawContext.closePath(); drawContext.clip();
+        const backgroundZoom = Number($('backgroundZoomInput').value) / 100;
+        const backgroundScale = Math.max(bubbleWidth / state.backgroundImage.width, bubbleHeight / state.backgroundImage.height) * backgroundZoom;
+        const backgroundWidth = state.backgroundImage.width * backgroundScale;
+        const backgroundHeight = state.backgroundImage.height * backgroundScale;
+        const backgroundX = Number($('backgroundXInput').value) / 100 * Math.max(0, backgroundWidth - bubbleWidth) / 2;
+        const backgroundY = Number($('backgroundYInput').value) / 100 * Math.max(0, backgroundHeight - bubbleHeight) / 2;
+        drawContext.drawImage(
+          state.backgroundImage,
+          bubbleX + (bubbleWidth - backgroundWidth) / 2 - backgroundX,
+          bubbleY + (bubbleHeight - backgroundHeight) / 2 - backgroundY,
+          backgroundWidth,
+          backgroundHeight
+        );
+        const shade = Number($('backgroundShadeInput').value) / 100;
+        if (shade > 0) {
+          drawContext.fillStyle = `rgba(0, 0, 0, ${shade})`;
+          drawContext.fillRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight);
+        }
+        drawContext.restore();
+      }
 
       const d = 184 * pulse;
       const cx = 148 + dx, cy = 140 + dy;
@@ -266,7 +328,37 @@
       reader.readAsDataURL(file);
     }
 
+    function loadBackground(file) {
+      if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) { $('status').textContent = '请选择 PNG、JPG 或 WEBP 背景图'; return; }
+      if (file.size > 8 * 1024 * 1024) { $('status').textContent = '背景图不能超过 8MB'; return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          state.backgroundImage = image; state.start = performance.now();
+          $('backgroundPreview').src = reader.result; $('backgroundPreview').style.display = 'block';
+          $('backgroundPlaceholder').style.display = 'none'; $('backgroundLabel').textContent = '更换背景图';
+          $('clearBackground').style.display = 'block'; $('backgroundControls').hidden = false;
+          const graphite = $('themeGrid').querySelector('[data-value="graphite"]');
+          $('themeGrid').querySelectorAll('button').forEach(item => item.classList.toggle('active', item === graphite));
+          state.theme = 'graphite';
+          $('status').textContent = '自定义背景已就位 · 可调整取景和遮罩';
+        };
+        image.onerror = () => { $('status').textContent = '背景图读取失败，请换一张图片'; };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
     $('fileInput').addEventListener('change', (event) => loadFile(event.target.files[0]));
+    $('backgroundInput').addEventListener('change', (event) => loadBackground(event.target.files[0]));
+    $('clearBackground').addEventListener('click', () => {
+      state.backgroundImage = null; state.start = performance.now(); $('backgroundInput').value = '';
+      $('backgroundPreview').removeAttribute('src'); $('backgroundPreview').style.display = 'none';
+      $('backgroundPlaceholder').style.display = 'grid'; $('backgroundLabel').textContent = '选择自定义背景图';
+      $('clearBackground').style.display = 'none'; $('backgroundControls').hidden = true;
+      $('status').textContent = '已恢复纯色气泡';
+    });
     const box = $('uploadBox');
     ['dragenter', 'dragover'].forEach(name => box.addEventListener(name, (event) => { event.preventDefault(); box.classList.add('drag'); }));
     ['dragleave', 'drop'].forEach(name => box.addEventListener(name, (event) => { event.preventDefault(); box.classList.remove('drag'); }));
@@ -286,7 +378,11 @@
       ['zoomInput', 'zoomValue', value => `${value}%`],
       ['xInput', 'xValue', value => value],
       ['yInput', 'yValue', value => value],
-      ['strengthInput', 'strengthValue', value => `${value}%`]
+      ['strengthInput', 'strengthValue', value => `${value}%`],
+      ['backgroundZoomInput', 'backgroundZoomValue', value => `${value}%`],
+      ['backgroundXInput', 'backgroundXValue', value => value],
+      ['backgroundYInput', 'backgroundYValue', value => value],
+      ['backgroundShadeInput', 'backgroundShadeValue', value => `${value}%`]
     ];
     bindings.forEach(([input, output, format]) => $(input).addEventListener('input', () => { $(output).textContent = format($(input).value); state.start = performance.now(); }));
 
