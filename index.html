@@ -140,17 +140,26 @@
             <span class="label-row"><span>上下位置</span><span class="value" id="yValue">0</span></span>
             <input id="yInput" type="range" min="-100" max="100" value="0">
           </label>
+          <label class="field">
+            <span class="label-row"><span>气泡宽度</span><span class="value" id="bubbleWidthValue">330</span></span>
+            <input id="bubbleWidthInput" type="range" min="220" max="350" value="330">
+          </label>
+          <label class="field" style="margin-bottom:0">
+            <span class="label-row"><span>气泡高度</span><span class="value" id="bubbleHeightValue">86</span></span>
+            <input id="bubbleHeightInput" type="range" min="64" max="112" value="86">
+          </label>
         </section>
 
         <section class="section">
           <h2 class="section-title">3. 选择动作</h2>
           <div class="motion-grid" id="motionGrid">
-            <button class="active" data-value="slide">滑动</button><button data-value="bounce">弹跳</button><button data-value="shake">摇头</button><button data-value="pulse">呼吸</button><button data-value="float">漂浮</button><button data-value="textwave">文字跳</button>
+            <button data-value="still">固定</button><button class="active" data-value="slide">滑动</button><button data-value="bounce">弹跳</button><button data-value="shake">摇头</button><button data-value="pulse">呼吸</button><button data-value="float">漂浮</button>
           </div>
           <label class="field" style="margin-top:14px">
             <span class="label-row"><span>动作幅度</span><span class="value" id="strengthValue">100%</span></span>
             <input id="strengthInput" type="range" min="20" max="160" value="100">
           </label>
+          <div class="toggle"><span>文字逐字跳动</span><input id="textWaveInput" type="checkbox"></div>
         </section>
 
         <section class="section">
@@ -210,7 +219,7 @@
     const $ = (id) => document.getElementById(id);
     const canvas = $('canvas');
     const ctx = canvas.getContext('2d');
-    const state = { image: null, dataUrl: '', backgroundImage: null, motion: 'slide', theme: 'graphite', start: performance.now() };
+    const state = { image: null, dataUrl: '', backgroundImage: null, motion: 'slide', textWave: false, theme: 'graphite', start: performance.now() };
     const themes = {
       graphite: { bubble: '#303236', text: '#fafafa', ring: '#70747c' },
       mist: { bubble: '#e2e4e8', text: '#24262a', ring: '#ffffff' },
@@ -221,7 +230,7 @@
     function motionAt(t) {
       const p = (t % 1) * Math.PI * 2;
       const s = Number($('strengthInput').value) / 100;
-      if (state.motion === 'textwave') return [0, 0, 0, 1];
+      if (state.motion === 'still') return [0, 0, 0, 1];
       if (state.motion === 'bounce') return [0, -Math.abs(Math.sin(p)) * 26 * s, 0, 1 + Math.abs(Math.sin(p)) * .035];
       if (state.motion === 'shake') return [Math.sin(p * 3) * 18 * s, 0, Math.sin(p * 3) * .12 * s, 1];
       if (state.motion === 'pulse') return [0, 0, 0, 1 + Math.sin(p) * .09 * s];
@@ -239,16 +248,20 @@
       if (!state.image) return;
       const c = themes[state.theme];
       const [dx, dy, angle, pulse] = motionAt(progress);
+      const bubbleX = 128;
+      const bubbleWidth = Number($('bubbleWidthInput').value) * 2;
+      const bubbleHeight = Number($('bubbleHeightInput').value) * 2;
+      const bubbleY = (canvas.height - bubbleHeight) / 2;
+      const bubbleRadius = bubbleHeight / 2;
 
       drawContext.save();
       drawContext.shadowColor = 'rgba(0,0,0,.18)'; drawContext.shadowBlur = 22; drawContext.shadowOffsetY = 10;
       drawContext.fillStyle = c.bubble;
-      drawContext.beginPath(); drawContext.roundRect(128, 54, 660, 172, 86); drawContext.closePath(); drawContext.fill();
+      drawContext.beginPath(); drawContext.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, bubbleRadius); drawContext.closePath(); drawContext.fill();
       drawContext.restore();
       if (state.backgroundImage) {
-        const bubbleX = 128, bubbleY = 54, bubbleWidth = 660, bubbleHeight = 172;
         drawContext.save();
-        drawContext.beginPath(); drawContext.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 86); drawContext.closePath(); drawContext.clip();
+        drawContext.beginPath(); drawContext.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, bubbleRadius); drawContext.closePath(); drawContext.clip();
         const backgroundZoom = Number($('backgroundZoomInput').value) / 100;
         const backgroundScale = Math.max(bubbleWidth / state.backgroundImage.width, bubbleHeight / state.backgroundImage.height) * backgroundZoom;
         const backgroundWidth = state.backgroundImage.width * backgroundScale;
@@ -286,16 +299,18 @@
       drawContext.fillStyle = c.text; drawContext.font = '54px "Microsoft YaHei", sans-serif'; drawContext.textBaseline = 'middle';
       const raw = $('textInput').value.trim() || '和我打个招呼吧';
       let display = raw;
-      while (display.length > 1 && drawContext.measureText(display).width > 460) display = display.slice(0, -1);
+      const maxTextWidth = Math.max(80, bubbleX + bubbleWidth - 302);
+      while (display.length > 1 && drawContext.measureText(display).width > maxTextWidth) display = display.slice(0, -1);
       if (display !== raw) display = display.slice(0, -1) + '…';
-      if (state.motion === 'textwave') {
+      if (state.textWave) {
         const characters = Array.from(display);
         const active = (progress % 1) * characters.length;
         const strength = Number($('strengthInput').value) / 100;
         let textX = 278;
         characters.forEach((character, index) => {
           const distance = (active - index + characters.length) % characters.length;
-          const lift = distance < 1 ? Math.sin(distance * Math.PI) * 30 * strength : 0;
+          const jumpHeight = Math.min(30 * strength, Math.max(0, bubbleHeight / 2 - 34));
+          const lift = distance < 1 ? Math.sin(distance * Math.PI) * jumpHeight : 0;
           drawContext.fillText(character, textX, 140 - lift);
           textX += drawContext.measureText(character).width;
         });
@@ -372,12 +387,15 @@
       });
     }
     bindGrid('motionGrid', 'motion'); bindGrid('themeGrid', 'theme');
+    $('textWaveInput').addEventListener('change', () => { state.textWave = $('textWaveInput').checked; state.start = performance.now(); });
 
     const bindings = [
       ['textInput', 'textCount', value => `${value.length}/24`],
       ['zoomInput', 'zoomValue', value => `${value}%`],
       ['xInput', 'xValue', value => value],
       ['yInput', 'yValue', value => value],
+      ['bubbleWidthInput', 'bubbleWidthValue', value => value],
+      ['bubbleHeightInput', 'bubbleHeightValue', value => value],
       ['strengthInput', 'strengthValue', value => `${value}%`],
       ['backgroundZoomInput', 'backgroundZoomValue', value => `${value}%`],
       ['backgroundXInput', 'backgroundXValue', value => value],
