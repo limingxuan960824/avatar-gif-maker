@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>头像 GIF 工坊</title>
+  <style>
+    :root {
+      --ink: #202226;
+      --muted: #72767f;
+      --line: #dedfe2;
+      --panel: #ffffff;
+      --soft: #f3f4f5;
+      --accent: #d52f3e;
+      --green: #238060;
+      --shadow: 0 10px 35px rgba(30, 32, 36, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background: #eaebed;
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+    button, input, select { font: inherit; letter-spacing: 0; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; display: grid; grid-template-rows: 58px 1fr; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; background: #202226; color: white;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+    .mark { width: 26px; height: 26px; display: grid; place-items: center; background: var(--accent); border-radius: 6px; font-size: 13px; }
+    header small { color: #b6bac2; font-size: 12px; }
+    main { display: grid; grid-template-columns: minmax(310px, 390px) 1fr; min-height: 0; }
+    .controls { padding: 22px; overflow: auto; border-right: 1px solid #d3d5d8; background: var(--panel); }
+    .section { padding: 0 0 22px; margin: 0 0 22px; border-bottom: 1px solid var(--line); }
+    .section:last-child { border: 0; margin-bottom: 0; }
+    .section-title { margin: 0 0 14px; font-size: 13px; color: #555a63; font-weight: 700; }
+    .upload {
+      min-height: 116px; display: grid; place-items: center; text-align: center;
+      border: 1px dashed #b9bdc4; border-radius: 8px; background: #fafafa; position: relative; overflow: hidden;
+    }
+    .upload.drag { border-color: var(--accent); background: #fff7f7; }
+    .upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload p { margin: 4px 0; font-size: 13px; }
+    .upload span { color: var(--muted); font-size: 11px; }
+    .upload-preview { width: 72px; height: 72px; object-fit: cover; border-radius: 50%; display: none; }
+    label.field { display: block; margin: 0 0 14px; }
+    .label-row { display: flex; justify-content: space-between; margin-bottom: 7px; font-size: 12px; color: #61656d; }
+    .value { color: #92969e; font-variant-numeric: tabular-nums; }
+    input[type="text"], select {
+      width: 100%; height: 38px; border: 1px solid #cfd2d6; border-radius: 6px; padding: 0 10px; color: var(--ink); background: white;
+    }
+    input[type="text"]:focus, select:focus { outline: 2px solid rgba(213, 47, 62, .18); border-color: var(--accent); }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .motion-grid, .theme-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+    .motion-grid button, .theme-grid button {
+      height: 36px; border: 1px solid #d1d3d7; border-radius: 6px; background: white; color: #5c6068; font-size: 12px;
+    }
+    .motion-grid button.active, .theme-grid button.active { border-color: var(--accent); color: var(--accent); background: #fff5f6; font-weight: 700; }
+    .theme-grid { grid-template-columns: repeat(4, 1fr); }
+    .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; vertical-align: -2px; margin-right: 4px; }
+    .toggle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #5e626a; }
+    .toggle input { width: 36px; height: 20px; accent-color: var(--green); }
+    .stage-wrap { min-width: 0; padding: 30px; display: grid; grid-template-rows: 1fr auto; gap: 22px; }
+    .stage {
+      min-height: 420px; display: grid; place-items: center; position: relative; overflow: hidden;
+      background-color: #f8f8f8;
+      background-image: linear-gradient(45deg, #e4e5e7 25%, transparent 25%), linear-gradient(-45deg, #e4e5e7 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e4e5e7 75%), linear-gradient(-45deg, transparent 75%, #e4e5e7 75%);
+      background-size: 22px 22px; background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+      border: 1px solid #d5d7da; border-radius: 8px;
+    }
+    canvas { width: min(84%, 630px); height: auto; image-rendering: auto; }
+    .empty { position: absolute; display: grid; place-items: center; text-align: center; color: #858991; pointer-events: none; }
+    .empty strong { display: block; color: #555961; margin-bottom: 5px; font-size: 14px; }
+    .actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .status { min-width: 0; color: #696d75; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .primary { min-width: 154px; height: 44px; border: 0; border-radius: 7px; color: white; background: var(--accent); font-weight: 700; box-shadow: 0 5px 15px rgba(213, 47, 62, .2); }
+    .primary:disabled { cursor: wait; background: #a5a8ae; box-shadow: none; }
+    @media (max-width: 800px) {
+      .app { grid-template-rows: 52px auto; }
+      header { padding: 0 16px; }
+      header small { display: none; }
+      main { grid-template-columns: 1fr; }
+      .controls { border-right: 0; border-bottom: 1px solid #d3d5d8; padding: 18px 16px; }
+      .stage-wrap { padding: 16px; grid-template-rows: auto auto; }
+      .stage { min-height: 280px; }
+      canvas { width: 100%; }
+      .actions { align-items: stretch; flex-direction: column; }
+      .primary { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand"><span class="mark">GIF</span>头像 GIF 工坊</div>
+      <small>头像、动作和一句话，做成会动的聊天气泡</small>
+    </header>
+    <main>
+      <aside class="controls">
+        <section class="section">
+          <h2 class="section-title">1. 选择头像</h2>
+          <div class="upload" id="uploadBox">
+            <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp">
+            <div id="uploadPrompt"><p><strong>点击或拖入头像</strong></p><span>PNG / JPG / WEBP，建议使用正方形图片</span></div>
+            <img class="upload-preview" id="uploadPreview" alt="头像预览">
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">2. 调整画面</h2>
+          <label class="field">
+            <span class="label-row"><span>气泡文案</span><span class="value" id="textCount">7/24</span></span>
+            <input id="textInput" type="text" maxlength="24" value="滑动来聊天">
+          </label>
+          <label class="field">
+            <span class="label-row"><span>头像缩放</span><span class="value" id="zoomValue">115%</span></span>
+            <input id="zoomInput" type="range" min="100" max="220" value="115">
+          </label>
+          <label class="field">
+            <span class="label-row"><span>左右位置</span><span class="value" id="xValue">0</span></span>
+            <input id="xInput" type="range" min="-100" max="100" value="0">
+          </label>
+          <label class="field">
+            <span class="label-row"><span>上下位置</span><span class="value" id="yValue">0</span></span>
+            <input id="yInput" type="range" min="-100" max="100" value="0">
+          </label>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">3. 选择动作</h2>
+          <div class="motion-grid" id="motionGrid">
+            <button class="active" data-value="slide">滑动</button><button data-value="bounce">弹跳</button><button data-value="shake">摇头</button><button data-value="pulse">呼吸</button><button data-value="float">漂浮</button>
+          </div>
+          <label class="field" style="margin-top:14px">
+            <span class="label-row"><span>动作幅度</span><span class="value" id="strengthValue">100%</span></span>
+            <input id="strengthInput" type="range" min="20" max="160" value="100">
+          </label>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">4. 气泡样式</h2>
+          <div class="theme-grid" id="themeGrid">
+            <button class="active" data-value="graphite"><i class="swatch" style="background:#303236"></i>深灰</button>
+            <button data-value="mist"><i class="swatch" style="background:#e2e4e8"></i>雾白</button>
+            <button data-value="cherry"><i class="swatch" style="background:#cb2630"></i>樱红</button>
+            <button data-value="mint"><i class="swatch" style="background:#2b8766"></i>薄荷</button>
+          </div>
+          <div class="toggle" style="margin-top:15px"><span>透明背景</span><input id="transparentInput" type="checkbox" checked></div>
+        </section>
+      </aside>
+
+      <section class="stage-wrap">
+        <div class="stage">
+          <canvas id="canvas" width="840" height="280"></canvas>
+          <div class="empty" id="emptyState"><div><strong>先放一张头像</strong><span>这里会实时播放效果</span></div></div>
+        </div>
+        <div class="actions">
+          <div class="status" id="status">输出尺寸 420 × 140 · 循环播放</div>
+          <button class="primary" id="exportButton">生成并下载 GIF</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="gif-encoder.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('canvas');
+    const ctx = canvas.getContext('2d');
+    const state = { image: null, dataUrl: '', motion: 'slide', theme: 'graphite', start: performance.now() };
+    const themes = {
+      graphite: { bubble: '#303236', text: '#fafafa', ring: '#70747c' },
+      mist: { bubble: '#e2e4e8', text: '#24262a', ring: '#ffffff' },
+      cherry: { bubble: '#cb2630', text: '#ffffff', ring: '#ffe7e1' },
+      mint: { bubble: '#2b8766', text: '#ffffff', ring: '#cdf5e1' }
+    };
+
+    function motionAt(t) {
+      const p = (t % 1) * Math.PI * 2;
+      const s = Number($('strengthInput').value) / 100;
+      if (state.motion === 'bounce') return [0, -Math.abs(Math.sin(p)) * 26 * s, 0, 1 + Math.abs(Math.sin(p)) * .035];
+      if (state.motion === 'shake') return [Math.sin(p * 3) * 18 * s, 0, Math.sin(p * 3) * .12 * s, 1];
+      if (state.motion === 'pulse') return [0, 0, 0, 1 + Math.sin(p) * .09 * s];
+      if (state.motion === 'float') return [Math.sin(p) * 8 * s, Math.cos(p) * 14 * s, Math.sin(p) * .035, 1];
+      return [(1 - Math.cos(p)) * 18 * s, -Math.sin(p) * 6, Math.sin(p) * .035, 1];
+    }
+
+    function drawScene(progress, target = ctx) {
+      const drawContext = target;
+      drawContext.clearRect(0, 0, canvas.width, canvas.height);
+      if (!$('transparentInput').checked) {
+        drawContext.fillStyle = '#1a1b1e';
+        drawContext.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      if (!state.image) return;
+      const c = themes[state.theme];
+      const [dx, dy, angle, pulse] = motionAt(progress);
+
+      drawContext.save();
+      drawContext.shadowColor = 'rgba(0,0,0,.18)'; drawContext.shadowBlur = 22; drawContext.shadowOffsetY = 10;
+      drawContext.fillStyle = c.bubble;
+      drawContext.beginPath(); drawContext.roundRect(128, 54, 660, 172, 86); drawContext.closePath(); drawContext.fill();
+      drawContext.restore();
+
+      const d = 184 * pulse;
+      const cx = 148 + dx, cy = 140 + dy;
+      drawContext.save(); drawContext.translate(cx, cy); drawContext.rotate(angle);
+      drawContext.fillStyle = c.ring; drawContext.beginPath(); drawContext.arc(0, 0, d / 2 + 8, 0, Math.PI * 2); drawContext.fill();
+      drawContext.beginPath(); drawContext.arc(0, 0, d / 2, 0, Math.PI * 2); drawContext.clip();
+      const zoom = Number($('zoomInput').value) / 100;
+      const scale = Math.max(d / state.image.width, d / state.image.height) * zoom;
+      const iw = state.image.width * scale, ih = state.image.height * scale;
+      const ox = Number($('xInput').value) / 100 * Math.max(0, iw - d) / 2;
+      const oy = Number($('yInput').value) / 100 * Math.max(0, ih - d) / 2;
+      drawContext.drawImage(state.image, -iw / 2 - ox, -ih / 2 - oy, iw, ih);
+      drawContext.restore();
+
+      drawContext.fillStyle = c.text; drawContext.font = '54px "Microsoft YaHei", sans-serif'; drawContext.textBaseline = 'middle';
+      const raw = $('textInput').value.trim() || '和我打个招呼吧';
+      let display = raw;
+      while (display.length > 1 && drawContext.measureText(display).width > 460) display = display.slice(0, -1);
+      if (display !== raw) display = display.slice(0, -1) + '…';
+      drawContext.fillText(display, 278, 140);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!state.image) { requestAnimationFrame(draw); return; }
+      const t = (performance.now() - state.start) / 1600;
+      drawScene(t, ctx);
+      requestAnimationFrame(draw);
+    }
+
+    function loadFile(file) {
+      if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) { $('status').textContent = '请选择 PNG、JPG 或 WEBP 图片'; return; }
+      if (file.size > 8 * 1024 * 1024) { $('status').textContent = '头像不能超过 8MB'; return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          state.image = image; state.dataUrl = reader.result; state.start = performance.now();
+          $('uploadPreview').src = reader.result; $('uploadPreview').style.display = 'block'; $('uploadPrompt').style.display = 'none';
+          $('emptyState').style.display = 'none'; $('status').textContent = '头像已就位 · 输出尺寸 420 × 140';
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    $('fileInput').addEventListener('change', (event) => loadFile(event.target.files[0]));
+    const box = $('uploadBox');
+    ['dragenter', 'dragover'].forEach(name => box.addEventListener(name, (event) => { event.preventDefault(); box.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(name => box.addEventListener(name, (event) => { event.preventDefault(); box.classList.remove('drag'); }));
+    box.addEventListener('drop', (event) => loadFile(event.dataTransfer.files[0]));
+
+    function bindGrid(id, key) {
+      $(id).addEventListener('click', (event) => {
+        const button = event.target.closest('button'); if (!button) return;
+        $(id).querySelectorAll('button').forEach(item => item.classList.toggle('active', item === button));
+        state[key] = button.dataset.value; state.start = performance.now();
+      });
+    }
+    bindGrid('motionGrid', 'motion'); bindGrid('themeGrid', 'theme');
+
+    const bindings = [
+      ['textInput', 'textCount', value => `${value.length}/24`],
+      ['zoomInput', 'zoomValue', value => `${value}%`],
+      ['xInput', 'xValue', value => value],
+      ['yInput', 'yValue', value => value],
+      ['strengthInput', 'strengthValue', value => `${value}%`]
+    ];
+    bindings.forEach(([input, output, format]) => $(input).addEventListener('input', () => { $(output).textContent = format($(input).value); state.start = performance.now(); }));
+
+    $('exportButton').addEventListener('click', async () => {
+      if (!state.dataUrl) { $('status').textContent = '请先选择一张头像'; return; }
+      const button = $('exportButton'); button.disabled = true; button.textContent = '正在生成…'; $('status').textContent = '正在浏览器本地绘制 GIF，请稍候';
+      try {
+        const exportCanvas = document.createElement('canvas'); exportCanvas.width = 840; exportCanvas.height = 280;
+        const exportContext = exportCanvas.getContext('2d', { willReadFrequently: true });
+        const smallCanvas = document.createElement('canvas'); smallCanvas.width = 420; smallCanvas.height = 140;
+        const smallContext = smallCanvas.getContext('2d', { willReadFrequently: true });
+        const frames = [];
+        for (let index = 0; index < 24; index += 1) {
+          drawScene(index / 24, exportContext);
+          smallContext.clearRect(0, 0, 420, 140); smallContext.drawImage(exportCanvas, 0, 0, 420, 140);
+          frames.push(smallContext.getImageData(0, 0, 420, 140).data);
+          if (index % 6 === 5) await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        const blob = window.encodeGif(420, 140, frames, 65); const url = URL.createObjectURL(blob); const link = document.createElement('a');
+        link.href = url; link.download = `头像气泡-${Date.now()}.gif`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1500);
+        $('status').textContent = `生成完成 · ${(blob.size / 1024).toFixed(0)} KB`;
+      } catch (error) { console.error(error); $('status').textContent = '生成失败，请换一张较小的头像后重试'; }
+      finally { button.disabled = false; button.textContent = '生成并下载 GIF'; }
+    });
+    draw();
+  </script>
+</body>
+</html>
